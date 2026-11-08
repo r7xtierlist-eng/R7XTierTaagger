@@ -3,6 +3,7 @@ package com.kevin.tiertagger.tierlist;
 import com.kevin.tiertagger.TierTagger;
 import com.kevin.tiertagger.model.GameMode;
 import com.kevin.tiertagger.model.PlayerInfo;
+import com.kevin.tiertagger.util.DrawContextCompat;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -12,6 +13,7 @@ import net.minecraft.client.gui.widget.PlayerSkinWidget;
 import net.minecraft.client.gui.widget.TextWidget;
 import net.minecraft.screen.ScreenTexts;
 import net.minecraft.text.Text;
+import net.minecraft.text.MutableText;
 import net.minecraft.util.Formatting;
 import net.uku3lig.ukulib.config.screen.CloseableScreen;
 import org.jetbrains.annotations.NotNull;
@@ -25,7 +27,7 @@ public class PlayerInfoScreen extends CloseableScreen {
     private final PlayerSkinWidget skin;
 
     public PlayerInfoScreen(Screen parent, PlayerInfo info, PlayerSkinWidget skin) {
-        super(Text.of("Player Info"), parent);
+        super(Text.translatable("tiertagger.profile.title", info.name()), parent);
         this.info = info;
         this.skin = skin;
     }
@@ -36,7 +38,7 @@ public class PlayerInfoScreen extends CloseableScreen {
                 .dimensions(this.width / 2 - 100, this.height - 27, 200, 20)
                 .build());
 
-        this.addDrawableChild(this.skin);
+        if (this.skin != null) this.addDrawableChild(this.skin);
 
         int rankingHeight = this.info.rankings().size() * 11;
         int infoHeight = 56; // 4 lines of text (10 px tall) + 6 px padding
@@ -51,8 +53,12 @@ public class PlayerInfoScreen extends CloseableScreen {
             text.setX(this.width / 2 + 5);
             text.setY(rankingY);
 
-            String date = DateTimeFormatter.ISO_LOCAL_DATE.withZone(ZoneOffset.UTC).format(Instant.ofEpochSecond(namedRanking.ranking().attained()));
-            Text tooltipText = Text.literal("Attained: " + date + "\nPoints: " + points(namedRanking.ranking())).formatted(Formatting.GRAY);
+            MutableText tooltip = Text.translatable("tiertagger.profile.points_value", points(namedRanking.ranking()));
+            if (namedRanking.ranking().attained() > 0) {
+                String date = DateTimeFormatter.ISO_LOCAL_DATE.withZone(ZoneOffset.UTC).format(Instant.ofEpochSecond(namedRanking.ranking().attained()));
+                tooltip = Text.translatable("tiertagger.profile.attained", date, tooltip);
+            }
+            Text tooltipText = tooltip.copy().formatted(Formatting.GRAY);
             text.setTooltip(Tooltip.of(tooltipText));
             this.addDrawableChild(text);
             rankingY += 11;
@@ -63,16 +69,16 @@ public class PlayerInfoScreen extends CloseableScreen {
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         super.render(context, mouseX, mouseY, delta);
 
-        context.drawCenteredTextWithShadow(this.textRenderer, this.info.name() + "'s profile", this.width / 2, 20, 0xFFFFFFFF);
+        context.drawCenteredTextWithShadow(this.textRenderer, Text.translatable("tiertagger.profile.title", this.info.name()), this.width / 2, 20, 0xFFFFFFFF);
 
         int rankingHeight = this.info.rankings().size() * 11;
         int infoHeight = 56; // 4 lines of text (10 px tall) + 6 px padding
         int startY = (this.height - infoHeight - rankingHeight) / 2;
 
-        context.drawTextWithShadow(this.textRenderer, getRegionText(this.info), this.width / 2 + 5, startY, 0xFFFFFFFF);
-        context.drawTextWithShadow(this.textRenderer, getPointsText(this.info), this.width / 2 + 5, startY + 15, 0xFFFFFFFF);
-        context.drawTextWithShadow(this.textRenderer, getRankText(this.info), this.width / 2 + 5, startY + 30, 0xFFFFFFFF);
-        context.drawTextWithShadow(this.textRenderer, "Rankings:", this.width / 2 + 5, startY + 45, 0xFFFFFFFF);
+        DrawContextCompat.drawTextWithShadow(context, this.textRenderer, getRegionText(this.info), this.width / 2 + 5, startY, 0xFFFFFFFF);
+        DrawContextCompat.drawTextWithShadow(context, this.textRenderer, getPointsText(this.info), this.width / 2 + 5, startY + 15, 0xFFFFFFFF);
+        DrawContextCompat.drawTextWithShadow(context, this.textRenderer, getRankText(this.info), this.width / 2 + 5, startY + 30, 0xFFFFFFFF);
+        DrawContextCompat.drawTextWithShadow(context, this.textRenderer, Text.translatable("tiertagger.profile.rankings"), this.width / 2 + 5, startY + 45, 0xFFFFFFFF);
     }
 
     private Text formatTier(@NotNull GameMode gamemode, PlayerInfo.Ranking ranking) {
@@ -86,7 +92,8 @@ public class PlayerInfoScreen extends CloseableScreen {
 
     private Text getRegionText(PlayerInfo info) {
         return Text.empty()
-                .append(Text.literal("Region: "))
+                .append(Text.translatable("tiertagger.profile.region"))
+                .append(Text.literal(": "))
                 .append(Text.literal(info.region()).styled(s -> s.withColor(info.getRegionColor())));
     }
 
@@ -94,9 +101,12 @@ public class PlayerInfoScreen extends CloseableScreen {
         PlayerInfo.PointInfo pointInfo = info.getPointInfo();
 
         return Text.empty()
-                .append(Text.literal("Points: "))
+                .append(Text.translatable("tiertagger.profile.points"))
+                .append(Text.literal(": "))
                 .append(Text.literal(info.points() + " ").styled(s -> s.withColor(pointInfo.getColor())))
-                .append(Text.literal("(" + pointInfo.getTitle() + ")").styled(s -> s.withColor(pointInfo.getAccentColor())));
+                .append(Text.literal("("))
+                .append(info.getTitleText().copy().styled(s -> s.withColor(pointInfo.getAccentColor())))
+                .append(Text.literal(")"));
     }
 
     private Text getRankText(PlayerInfo info) {
@@ -108,7 +118,8 @@ public class PlayerInfoScreen extends CloseableScreen {
         };
 
         return Text.empty()
-                .append(Text.literal("Global rank: "))
+                .append(Text.translatable("tiertagger.profile.global_rank"))
+                .append(Text.literal(": "))
                 .append(Text.literal("#" + info.overall()).styled(s -> s.withColor(color)));
     }
 

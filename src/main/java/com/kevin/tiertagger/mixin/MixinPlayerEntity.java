@@ -13,7 +13,7 @@ public class MixinPlayerEntity {
     public Text prependTier(Text original) {
         if (TierTagger.getManager().getConfig().isEnabled()) {
             PlayerEntity self = (PlayerEntity) (Object) this;
-            return TierTagger.appendTier(self.getUuid(), original);
+            return TierTagger.appendTier(self.getNameForScoreboard(), original);
         } else {
             return original;
         }

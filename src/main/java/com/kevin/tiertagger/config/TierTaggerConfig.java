@@ -7,7 +7,6 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import net.minecraft.util.TranslatableOption;
 
 import java.io.Serializable;
 import java.util.Optional;
@@ -18,7 +17,7 @@ import java.util.Optional;
 @AllArgsConstructor
 public class TierTaggerConfig implements Serializable {
     private boolean enabled = true;
-    private String gameMode = "vanilla";
+    private String gameMode = "sword";
     private boolean showRetired = true;
     private HighestMode highestMode = HighestMode.NOT_FOUND;
     private boolean showIcons = true;
@@ -26,14 +25,6 @@ public class TierTaggerConfig implements Serializable {
     private int retiredColor = 0xa2d6ff;
     // note: this is a GSON internal class. this *might* break in the future
     private LinkedTreeMap<String, Integer> tierColors = defaultColors();
-
-    // === internal stuff ===
-
-    /**
-     * <p>the field was renamed to do a little trolling and force it setting to the default value in players' config</p>
-     * <p>previous name(s): {@code baseUrl}</p>
-     */
-    private String apiUrl = "https://mctiers.com/api";
 
     public GameMode getGameMode() {
         Optional<GameMode> opt = TierCache.findMode(this.gameMode);
@@ -64,7 +55,7 @@ public class TierTaggerConfig implements Serializable {
 
     @Getter
     @AllArgsConstructor
-    public enum HighestMode implements TranslatableOption {
+    public enum HighestMode {
         NEVER(0, "tiertagger.highest.never"),
         NOT_FOUND(1, "tiertagger.highest.not_found"),
         ALWAYS(2, "tiertagger.highest.always"),

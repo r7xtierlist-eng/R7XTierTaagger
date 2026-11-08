@@ -1,12 +1,14 @@
 package com.kevin.tiertagger.model;
 
-import com.google.gson.annotations.SerializedName;
-import com.google.gson.reflect.TypeToken;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.kevin.tiertagger.TierCache;
 import com.kevin.tiertagger.TierTagger;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import org.jetbrains.annotations.Nullable;
+import net.minecraft.text.MutableText;
+import net.minecraft.text.Text;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -14,11 +16,14 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-public record PlayerInfo(String uuid, String name, Map<String, Ranking> rankings, String region, int points,
-                         int overall, List<Badge> badges, @SerializedName("combat_master") boolean combatMaster) {
-    public record Ranking(int tier, int pos, @Nullable @SerializedName("peak_tier") Integer peakTier,
-                          @Nullable @SerializedName("peak_pos") Integer peakPos, long attained,
+public record PlayerInfo(String name, Map<String, Ranking> rankings, String region, int points,
+                         int overall, String title, String titleKey) {
+    private static final Pattern TIER_PATTERN = Pattern.compile("(?i)^(R)?([HL])T([1-5])$");
+
+    public record Ranking(int tier, int pos, Integer peakTier, Integer peakPos, long attained,
                           boolean retired) {
 
         /**
@@ -44,10 +49,7 @@ public record PlayerInfo(String uuid, String name, Map<String, Ranking> rankings
         }
     }
 
-    public record NamedRanking(@Nullable GameMode mode, Ranking ranking) {
-    }
-
-    public record Badge(String title, String desc) {
+    public record NamedRanking(GameMode mode, Ranking ranking) {
     }
 
     private static final Map<String, Integer> REGION_COLORS = Map.of(
@@ -57,43 +59,93 @@ public record PlayerInfo(String uuid, String name, Map<String, Ranking> rankings
             "AU", 0xf6b26b,
             "ME", 0xffd966,
             "AS", 0xc27ba0,
-            "AF", 0x674ea7
+            "AF", 0x674ea7,
+            "TR", 0xe30a17
     );
 
-    public static CompletableFuture<PlayerInfo> get(HttpClient client, UUID uuid) {
-        String endpoint = TierTagger.getManager().getConfig().getApiUrl() + "/v2/profile/" + uuid;
-        final HttpRequest request = HttpRequest.newBuilder(URI.create(endpoint)).GET().build();
+    public static CompletableFuture<List<PlayerInfo>> fetchPlayers(HttpClient client) {
+        HttpRequest request = HttpRequest.newBuilder(URI.create("https://r7xtierlist.tr/api/players"))
+                .header("Accept", "application/json")
+                .header("Cache-Control", "no-cache, no-store, max-age=0")
+                .header("Pragma", "no-cache")
+                .GET()
+                .build();
 
         return client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .thenApply(HttpResponse::body)
-                .thenApply(s -> TierTagger.GSON.fromJson(s, PlayerInfo.class))
-                .whenComplete((i, t) -> {
-                    if (t != null) TierTagger.getLogger().warn("Error getting player info ({})", uuid, t);
+                .thenApply(response -> {
+                    if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                        throw new IllegalStateException("R7XTiers API returned HTTP " + response.statusCode());
+                    }
+
+                    JsonElement root = TierTagger.GSON.fromJson(response.body(), JsonElement.class);
+                    JsonArray players;
+                    if (root != null && root.isJsonArray()) {
+                        players = root.getAsJsonArray();
+                    } else if (root != null && root.isJsonObject() && root.getAsJsonObject().has("value")) {
+                        players = root.getAsJsonObject().getAsJsonArray("value");
+                    } else {
+                        throw new IllegalStateException("Unexpected R7XTiers API response format");
+                    }
+
+                    List<PlayerInfo> result = new ArrayList<>(players.size());
+                    for (JsonElement player : players) {
+                        if (player.isJsonObject()) result.add(fromJson(player.getAsJsonObject()));
+                    }
+                    return List.copyOf(result);
+                })
+                .whenComplete((players, error) -> {
+                    if (error != null) TierTagger.getLogger().warn("Error loading players from R7XTiers", error);
                 });
     }
 
-    public static CompletableFuture<Map<String, Ranking>> getRankings(HttpClient client, UUID uuid) {
-        String endpoint = TierTagger.getManager().getConfig().getApiUrl() + "/v2/profile/" + uuid + "/rankings";
-        final HttpRequest request = HttpRequest.newBuilder(URI.create(endpoint)).GET().build();
+    private static PlayerInfo fromJson(JsonObject json) {
+        String name = getString(json, "name", "");
+        String region = getString(json, "region", "?");
+        int points = getInt(json, "overallPoints", 0);
+        int overall = getInt(json, "rank", 0);
+        String title = json.has("title") && json.get("title").isJsonObject()
+                ? getString(json.getAsJsonObject("title"), "label", "")
+                : "";
+        String titleKey = json.has("title") && json.get("title").isJsonObject()
+                ? getString(json.getAsJsonObject("title"), "key", "")
+                : "";
 
-        return client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .thenApply(HttpResponse::body)
-                .thenApply(s -> TierTagger.GSON.fromJson(s, new TypeToken<Map<String, Ranking>>() {}))
-                .whenComplete((i, t) -> {
-                    if (t != null) TierTagger.getLogger().warn("Error getting player rankings ({})", uuid, t);
-                });
+        Map<String, Ranking> rankings = new LinkedHashMap<>();
+        if (json.has("tiers") && json.get("tiers").isJsonObject()) {
+            for (Map.Entry<String, JsonElement> entry : json.getAsJsonObject("tiers").entrySet()) {
+                if (!entry.getValue().isJsonPrimitive()) continue;
+                Matcher matcher = TIER_PATTERN.matcher(entry.getValue().getAsString().trim());
+                if (!matcher.matches()) continue;
+
+                boolean retired = matcher.group(1) != null;
+                int pos = matcher.group(2).equalsIgnoreCase("H") ? 0 : 1;
+                int tier = Integer.parseInt(matcher.group(3));
+                rankings.put(entry.getKey(), new Ranking(
+                        tier,
+                        pos,
+                        retired ? tier : null,
+                        retired ? pos : null,
+                        0,
+                        retired
+                ));
+            }
+        }
+
+        return new PlayerInfo(name, Map.copyOf(rankings), region, points, overall, title, titleKey);
     }
 
-    public static CompletableFuture<PlayerInfo> search(HttpClient client, String query) {
-        String endpoint = TierTagger.getManager().getConfig().getApiUrl() + "/v2/profile/by-name/" + query;
-        final HttpRequest request = HttpRequest.newBuilder(URI.create(endpoint)).GET().build();
+    private static String getString(JsonObject object, String key, String fallback) {
+        JsonElement element = object.get(key);
+        return element != null && element.isJsonPrimitive() ? element.getAsString() : fallback;
+    }
 
-        return client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .thenApply(HttpResponse::body)
-                .thenApply(s -> TierTagger.GSON.fromJson(s, PlayerInfo.class))
-                .whenComplete((i, t) -> {
-                    if (t != null) TierTagger.getLogger().warn("Error searching player {}", query, t);
-                });
+    private static int getInt(JsonObject object, String key, int fallback) {
+        JsonElement element = object.get(key);
+        try {
+            return element != null && element.isJsonPrimitive() ? element.getAsInt() : fallback;
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
     }
 
     public int getRegionColor() {
@@ -142,6 +194,20 @@ public record PlayerInfo(String uuid, String name, Map<String, Ranking> rankings
         } else {
             return PointInfo.UNRANKED;
         }
+    }
+
+    public MutableText getTitleText() {
+        String translationKey = switch (this.titleKey) {
+            case "combat_grandmaster", "combat_master", "combat_ace", "combat_specialist",
+                    "combat_cadet", "combat_novice", "rookie", "unranked" -> "tiertagger.title." + this.titleKey;
+            default -> null;
+        };
+        if (translationKey != null) {
+            return Text.translatable(translationKey);
+        }
+
+        if (!this.title.isBlank()) return Text.literal(this.title);
+        return Text.translatable("tiertagger.title." + this.getPointInfo().name().toLowerCase(Locale.ROOT));
     }
 
     public List<NamedRanking> getSortedTiers() {

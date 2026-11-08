@@ -3,8 +3,27 @@ plugins {
     id("io.freefair.lombok") version "9.1.0"
 }
 
-version = "${project.property("mod_version")}+mc${project.property("minecraft_version")}"
+val modVersion = project.property("mod_version") as String
+val universalBuild = project.findProperty("universal_build")?.toString()?.toBoolean() == true
+version = if (universalBuild) "$modVersion+universal" else "$modVersion+mc${project.property("minecraft_version")}"
 group = project.property("maven_group") as String
+
+val minecraftVersion = project.property("minecraft_version") as String
+val ukulibDependencyVersion = project.property("ukulib_dependency_version") as String
+val minecraftDependency = if (universalBuild) ">=1.21.5 <=1.21.11" else minecraftVersion
+val ukulibDependency = if (universalBuild) ">=1.7.1 <2.0.0" else "^$ukulibDependencyVersion"
+
+sourceSets {
+    main {
+        java.srcDir(
+            if (minecraftVersion == "1.21" || minecraftVersion == "1.21.1") {
+                "src/compat/legacy-display/java"
+            } else {
+                "src/compat/render-state/java"
+            }
+        )
+    }
+}
 
 repositories {
     maven {
@@ -39,10 +58,16 @@ java {
 
 tasks.processResources {
     inputs.property("version", project.version)
+    inputs.property("minecraft_dependency", minecraftDependency)
+    inputs.property("ukulib_dependency", ukulibDependency)
     filteringCharset = "UTF-8"
 
     filesMatching("fabric.mod.json") {
-        expand("version" to project.version)
+        expand(
+            "version" to project.version,
+            "minecraft_dependency" to minecraftDependency,
+            "ukulib_dependency" to ukulibDependency
+        )
     }
 }
 

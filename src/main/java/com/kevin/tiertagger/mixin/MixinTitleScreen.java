@@ -34,21 +34,7 @@ public class MixinTitleScreen extends Screen {
         Version currentVersion = FabricLoader.getInstance().getModContainer("tier-tagger").map(m -> m.getMetadata().getVersion()).orElse(null);
         Version latestVersion = TierTagger.getLatestVersion();
 
-        if (TierTagger.isObsolete()) {
-            MinecraftClient.getInstance().setScreen(new ConfirmScreen(
-                    b -> {
-                        if (b) {
-                            MinecraftClient.getInstance().scheduleStop();
-                        } else {
-                            MinecraftClient.getInstance().setScreen(this);
-                        }
-                    },
-                    Text.translatable("tiertagger.obsolete.title"),
-                    Text.translatable("tiertagger.obsolete.desc"),
-                    Text.translatable("menu.quit"),
-                    Text.translatable("tiertagger.outdated.ignore")
-            ));
-        } else if (currentVersion != null && latestVersion != null && currentVersion.compareTo(latestVersion) < 0) {
+        if (currentVersion != null && latestVersion != null && currentVersion.compareTo(latestVersion) < 0) {
             Text newVersion = Text.literal(latestVersion.getFriendlyString()).formatted(Formatting.GREEN);
 
             MinecraftClient.getInstance().setScreen(new ConfirmScreen(

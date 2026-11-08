@@ -2,6 +2,7 @@ package com.kevin.tiertagger.mixin;
 
 import com.kevin.tiertagger.TierTagger;
 import com.kevin.tiertagger.config.TierTaggerConfig;
+import com.kevin.tiertagger.util.GameProfileName;
 import com.llamalad7.mixinextras.injector.ModifyReturnValue;
 import net.minecraft.client.gui.hud.PlayerListHud;
 import net.minecraft.client.network.PlayerListEntry;
@@ -17,7 +18,7 @@ public class MixinPlayerListHud {
     public Text prependTier(Text original, PlayerListEntry entry) {
         TierTaggerConfig config = TierTagger.getManager().getConfig();
         if (config.isEnabled() && config.isPlayerList()) {
-            return TierTagger.appendTier(entry.getProfile().getId(), original);
+            return TierTagger.appendTier(GameProfileName.get(entry.getProfile()), original);
         } else {
             return original;
         }

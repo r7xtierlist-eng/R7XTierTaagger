@@ -2,7 +2,6 @@ package com.kevin.tiertagger.config;
 
 import com.kevin.tiertagger.TierCache;
 import com.kevin.tiertagger.TierTagger;
-import com.kevin.tiertagger.model.TierList;
 import com.kevin.tiertagger.tierlist.PlayerSearchScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.tab.Tab;
@@ -12,19 +11,18 @@ import net.minecraft.text.Text;
 import net.uku3lig.ukulib.config.option.*;
 import net.uku3lig.ukulib.config.option.widget.ButtonTab;
 import net.uku3lig.ukulib.config.screen.TabbedConfigScreen;
-import net.uku3lig.ukulib.utils.Ukutils;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class TTConfigScreen extends TabbedConfigScreen<TierTaggerConfig> {
     public TTConfigScreen(Screen parent) {
-        super("TierTagger Config", parent, TierTagger.getManager());
+        super("R7XTiertagger Ayarları", parent, TierTagger.getManager());
     }
 
     @Override
     protected Tab[] getTabs(TierTaggerConfig config) {
-        return new Tab[]{new MainSettingsTab(), new ColorsTab(), new TierlistTab()};
+        return new Tab[]{new MainSettingsTab(), new ColorsTab()};
     }
 
     public class MainSettingsTab extends ButtonTab<TierTaggerConfig> {
@@ -36,45 +34,17 @@ public class TTConfigScreen extends TabbedConfigScreen<TierTaggerConfig> {
         protected WidgetCreator[] getWidgets(TierTaggerConfig config) {
             return new WidgetCreator[]{
                     CyclingOption.ofBoolean("tiertagger.config.enabled", config.isEnabled(), config::setEnabled),
-                    new CyclingOption<>("tiertagger.config.gamemode", TierCache.getGamemodes(), config.getGameMode(), m -> config.setGameMode(m.id()), m -> Text.literal(m.title()),
+                    new CyclingOption<>("tiertagger.config.gamemode", TierCache.getGamemodes(), config.getGameMode(), m -> config.setGameMode(m.id()), m -> m.isNone() ? Text.translatable("tiertagger.gamemode.none.title") : Text.literal(m.title()),
                             m -> m.isNone() ? Tooltip.of(Text.translatable("tiertagger.config.gamemode.none")) : null),
                     CyclingOption.ofBoolean("tiertagger.config.retired", config.isShowRetired(), config::setShowRetired),
-                    CyclingOption.ofTranslatableEnum("tiertagger.config.highest", TierTaggerConfig.HighestMode.class, config.getHighestMode(), config::setHighestMode, SimpleOption.constantTooltip(Text.translatable("tiertagger.config.highest.desc"))),
+                    new CyclingOption<>("tiertagger.config.highest", List.of(TierTaggerConfig.HighestMode.values()), config.getHighestMode(), config::setHighestMode,
+                            mode -> Text.translatable(mode.getTranslationKey()),
+                            SimpleOption.constantTooltip(Text.translatable("tiertagger.config.highest.desc"))),
                     CyclingOption.ofBoolean("tiertagger.config.icons", config.isShowIcons(), config::setShowIcons),
                     CyclingOption.ofBoolean("tiertagger.config.playerList", config.isPlayerList(), config::setPlayerList),
                     new SimpleButton("tiertagger.clear", b -> TierCache.clearCache()),
                     new ScreenOpenButton("tiertagger.config.search", PlayerSearchScreen::new)
             };
-        }
-    }
-
-    public class TierlistTab extends ButtonTab<TierTaggerConfig> {
-        public TierlistTab() {
-            super("tiertagger.config.tierlists", TTConfigScreen.this.manager);
-        }
-
-        @Override
-        protected WidgetCreator[] getWidgets(TierTaggerConfig config) {
-            Optional<TierList> current = TierList.findByUrl(config.getApiUrl());
-
-            List<WidgetCreator> widgets = Arrays.stream(TierList.values())
-                    .map(t -> {
-                        boolean isCurrent = current.isPresent() && current.get() == t;
-                        return new SimpleButton(Text.of(t.styledName(isCurrent)), b -> {
-                            config.setApiUrl(t.getUrl());
-                            TierTagger.getManager().saveConfig();
-                            TTConfigScreen.this.close();
-                            TierCache.init();
-                            Ukutils.sendToast(Text.literal("Tierlist changed to " + t.getName() + "!"), Text.literal("Reloading tiers..."));
-                        });
-                    })
-                    .collect(Collectors.toList());
-
-            if (current.isEmpty()) {
-                widgets.add(new SimpleButton(Text.of("Custom (selected, " + config.getApiUrl() + ")"), b -> {}));
-            }
-
-            return widgets.toArray(WidgetCreator[]::new);
         }
     }
 

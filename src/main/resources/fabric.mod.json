@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "id": "tier-tagger",
   "version": "${version}",
-  "name": "TierTagger",
-  "description": "Display player's PvP Tiers in their nametag!",
+  "name": "R7XTiertagger",
+  "description": "Oyuncu isimlerinde R7XTiers PvP tier bilgilerini gösteren istemci modu.",
   "authors": ["uku", "netiyiy (original creator)"],
   "contact": {
-    "sources": "https://github.com/mctiers-dev/TierTagger.git"
+    "sources": "https://github.com/r7xtierlist-eng/R7XTierTaagger"
   },
   "license": "MPL-2.0",
   "icon": "assets/tier-tagger/icon.png",
@@ -24,7 +24,7 @@
   ],
   "depends": {
     "fabricloader": ">=0.16",
-    "minecraft": "1.21.5",
-    "ukulib": "^1.7.1"
+    "minecraft": "${minecraft_dependency}",
+    "ukulib": "${ukulib_dependency}"
   }
 }
