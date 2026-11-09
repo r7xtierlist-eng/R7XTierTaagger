@@ -86,7 +86,7 @@
     },
     {
       "type": "bitmap",
-      "file": "tier-tagger:gamemodes/dia_crystal.png",
+      "file": "tier-tagger:gamemodes/vanilla.png",
       "ascent": 8,
       "height": 8,
       "chars": ["\uE805"]
