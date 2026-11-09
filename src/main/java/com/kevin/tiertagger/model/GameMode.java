@@ -45,7 +45,7 @@ public record GameMode(String id, String title) {
             case "bow" -> new Pair<>('\uE802', TextColor.fromRgb(0x663d10));
             case "creeper" -> new Pair<>('\uE803', TextColor.fromFormatting(Formatting.GREEN));
             case "debuff" -> new Pair<>('\uE804', TextColor.fromFormatting(Formatting.DARK_GRAY));
-            case "crystal", "dia_crystal" -> new Pair<>('\uE805', TextColor.fromFormatting(Formatting.AQUA));
+            case "crystal", "dia_crystal" -> new Pair<>('\uE708', TextColor.fromFormatting(Formatting.AQUA));
             case "dia_smp" -> new Pair<>('\uE806', TextColor.fromRgb(0x8c668b));
             case "elytra" -> new Pair<>('\uE807', TextColor.fromRgb(0x8d8db1));
             case "manhunt" -> new Pair<>('\uE808', TextColor.fromFormatting(Formatting.RED));

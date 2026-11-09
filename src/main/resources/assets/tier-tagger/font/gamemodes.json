@@ -86,13 +86,6 @@
     },
     {
       "type": "bitmap",
-      "file": "tier-tagger:gamemodes/vanilla.png",
-      "ascent": 8,
-      "height": 8,
-      "chars": ["\uE805"]
-    },
-    {
-      "type": "bitmap",
       "file": "tier-tagger:gamemodes/dia_smp.png",
       "ascent": 8,
       "height": 8,
