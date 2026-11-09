@@ -9,8 +9,7 @@
   "client": [
     "MixinMinecraftClient",
     "MixinPlayerListHud",
-    "MixinTextDisplayEntityRenderer",
-    "MixinTitleScreen"
+    "MixinTextDisplayEntityRenderer"
   ],
   "injectors": {
     "defaultRequire": 1

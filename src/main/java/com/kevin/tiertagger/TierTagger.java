@@ -2,20 +2,15 @@ package com.kevin.tiertagger;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
 import com.kevin.tiertagger.config.TierTaggerConfig;
 import com.kevin.tiertagger.model.GameMode;
 import com.kevin.tiertagger.model.PlayerInfo;
 import com.kevin.tiertagger.util.KeyBindingFactory;
-import com.kevin.tiertagger.util.MinecraftVersionName;
 import com.mojang.brigadier.context.CommandContext;
 import lombok.Getter;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
-import net.fabricmc.loader.api.Version;
-import net.fabricmc.loader.api.VersionParsingException;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.text.MutableText;
@@ -28,13 +23,7 @@ import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.URI;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -43,8 +32,6 @@ import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.lit
 
 public class TierTagger implements ModInitializer {
     public static final String MOD_ID = "tiertagger";
-    private static final String UPDATE_URL_FORMAT = "https://api.modrinth.com/v2/project/dpkYdLu5/version?game_versions=%s";
-
     public static final Gson GSON = new GsonBuilder().create();
 
     @Getter
@@ -53,10 +40,6 @@ public class TierTagger implements ModInitializer {
     private static final Logger logger = LoggerFactory.getLogger(TierTagger.class);
     @Getter
     private static final HttpClient client = HttpClient.newHttpClient();
-
-    // === version checker stuff ===
-    @Getter
-    private static Version latestVersion = null;
 
     @Override
     public void onInitialize() {
@@ -78,7 +61,6 @@ public class TierTagger implements ModInitializer {
                     }
                 });
 
-        checkForUpdates();
     }
 
     public static Text appendTier(String playerName, Text text) {
@@ -202,46 +184,6 @@ public class TierTagger implements ModInitializer {
         } else {
             return manager.getConfig().getTierColors().getOrDefault(tier, 0xD3D3D3);
         }
-    }
-
-    private static void checkForUpdates() {
-        String versionParam = "[\"%s\"]".formatted(MinecraftVersionName.get());
-        String fullUrl = UPDATE_URL_FORMAT.formatted(URLEncoder.encode(versionParam, StandardCharsets.UTF_8));
-
-        HttpRequest request = HttpRequest.newBuilder(URI.create(fullUrl)).GET().build();
-
-        client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .thenApply(r -> {
-                    String body = r.body();
-                    JsonArray array = GSON.fromJson(body, JsonArray.class);
-
-                    if (!array.isEmpty()) {
-                        JsonObject root = array.get(0).getAsJsonObject();
-
-                        String versionName = root.get("name").getAsString();
-                        if (versionName != null && versionName.toLowerCase(Locale.ROOT).startsWith("[o")) {
-                            return null;
-                        }
-
-                        String latestVer = root.get("version_number").getAsString();
-                        try {
-                            return Version.parse(latestVer);
-                        } catch (VersionParsingException e) {
-                            logger.warn("Could not parse version number {}", latestVer);
-                        }
-                    }
-
-                    return null;
-                })
-                .exceptionally(t -> {
-                    logger.warn("Error checking for updates", t);
-                    return null;
-                }).thenAccept(v -> {
-                    if (v != null) {
-                        logger.info("Found latest version {}", v.getFriendlyString());
-                        latestVersion = v;
-                    }
-                });
     }
 
 }
